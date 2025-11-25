@@ -1,0 +1,206 @@
+openapi: 3.0.3
+info:
+  title: Event Management API
+  description: |
+    API for managing event attendee verification through webhook endpoints.
+    This API uses JWT tokens for secure attendee data retrieval.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@startupmission.in
+servers:
+  - url: https://tickets.startupmission.in/api
+    description: Production server
+
+tags:
+  - name: Webhook
+    description: Webhook endpoints for attendee verification
+
+paths:
+  /webhook/verify/{event}:
+    post:
+      tags:
+        - Webhook
+      summary: Verify attendee
+      description: |
+        Verifies a JWT token for an event attendee and returns their registration details.
+  
+        JWT Token Requirements:
+        - Algorithm: HS256
+        - Secret Key: Event's HID (unique identifier)
+        - Payload Structure (REQUIRED):
+
+          {
+            "code": "ATTENDEE_TICKET_NUMBER"
+          }
+        
+        The "code" field in the JWT payload must contain the attendee's ticket number.
+        This code is used to retrieve the attendee's registration data from the system.
+      operationId: verifyAttendeeWebhook
+      parameters:
+        - name: event
+          in: path
+          required: true
+          description: Event slug
+          schema:
+            type: string
+          examples:
+            slug:
+              value: "evt_huddle_2024"
+              summary: Event slug identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  type: string
+                  description: |
+                    JWT token string (Base64 encoded).
+                    
+                    Decoded JWT Payload Example:
+                    {
+                      "code": "ATT12345"
+                    }
+                    
+                    The "code" value should be the attendee's ticket number for which you want to retrieve data.
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoiQVRUMTIzNDUifQ.dGVzdF9zaWduYXR1cmU"
+            examples:
+              valid_token:
+                summary: Valid JWT token
+                value:
+                  data: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoiQVRUMTIzNDUifQ.dGVzdF9zaWduYXR1cmU"
+      responses:
+        '200':
+          description: Successfully verified the JWT token and retrieved attendee data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    description: Unique attendee code
+                    example: "ATT12345"
+                  name:
+                    type: string
+                    description: Full name of the attendee
+                    example: "Sidharth Kumar"
+                  email:
+                    type: string
+                    format: email
+                    description: Email address of the attendee
+                    example: "sidharth@example.com"
+                  phone:
+                    type: string
+                    description: Phone number of the attendee
+                    example: "+91-9876543210"
+                  type:
+                    type: string
+                    description: Attendee type from the ticket configuration
+                    example: "Delegate"
+                  badge:
+                    type: string
+                    description: Badge name associated with the ticket
+                    example: "VIP Pass"
+                additionalProperties:
+                  type: string
+                  description: Dynamic form field answers with keys following pattern answers_{field_hid}
+              examples:
+                delegate_attendee:
+                  summary: Delegate with custom fields
+                  value:
+                    code: "ATT12345"
+                    name: "Sidharth Kumar"
+                    email: "sidharth@keralastartup.org"
+                    phone: "+91-9876543210"
+                    type: "Delegate"
+                    badge: "VIP Pass"
+                    answers_company_name: "Kerala Startup Mission"
+                    answers_job_title: "Tech Lead"
+                    answers_dietary_preference: "Vegetarian"
+        '403':
+          description: JWT token validation failed due to invalid format, signature, or wrong secret key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_token:
+                  summary: Invalid or malformed token
+                  value:
+                    message: "Invalid Token"
+        '404':
+          description: Attendee code not found or attendee belongs to different event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_code:
+                  summary: Attendee code not found
+                  value:
+                    message: "Invalid Code"
+                invalid_event:
+                  summary: Attendee-event mismatch
+                  value:
+                    message: "Invalid Event"
+
+components:
+  schemas:
+    JWTPayload:
+      type: object
+      description: Required JWT payload structure
+      properties:
+        code:
+          type: string
+          description: Attendee ticket number/code for which data should be retrieved
+          example: "ATT12345"
+      required:
+        - code
+      example:
+        code: "ATT12345"
+      
+    AttendeeData:
+      type: object
+      description: Complete attendee information including default and custom fields
+      properties:
+        code:
+          type: string
+          description: Unique attendee code
+        name:
+          type: string
+          description: Full name of the attendee
+        email:
+          type: string
+          format: email
+          description: Email address
+        phone:
+          type: string
+          description: Phone number
+        type:
+          type: string
+          description: Attendee type from ticket
+        badge:
+          type: string
+          description: Badge name from ticket
+      required:
+        - code
+        - name
+        - email
+        - phone
+        - type
+        - badge
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Human-readable error message
+      required:
+        - message
