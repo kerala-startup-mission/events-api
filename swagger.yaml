@@ -3,7 +3,6 @@ info:
   title: Event Management API
   description: |
     API for managing event attendee verification through webhook endpoints.
-    This API uses JWT tokens for secure attendee data retrieval.
   version: 1.0.0
   contact:
     name: API Support
@@ -18,6 +17,85 @@ tags:
 
 paths:
   /webhook/verify/{event}:
+    get:
+      tags:
+        - Webhook
+      summary: Verify attendee with code
+      description: |
+        Verification endpoint that retrieves basic attendee information using attendee code.
+        
+        Response includes:
+        - code: Attendee ticket number
+        - name: Attendee full name
+        - type: Attendee type from ticket
+        - badge: Badge name (if assigned)
+      operationId: verifyAttendeeWebhookGet
+      parameters:
+        - name: event
+          in: path
+          required: true
+          description: Event identifier or slug
+          schema:
+            type: string
+          examples:
+            slug:
+              value: "evt_huddle_2024"
+              summary: Event slug identifier
+        - name: code
+          in: query
+          required: true
+          description: Attendee ticket code/number to verify
+          schema:
+            type: string
+          examples:
+            delegate:
+              value: "ATT12345"
+              summary: Delegate attendee code
+              
+      responses:
+        '200':
+          description: Successfully retrieved attendee basic information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendeeBasicData'
+              examples:
+                delegate:
+                  summary: Delegate attendee
+                  value:
+                    code: "ATT12345"
+                    name: "Sidharth Kumar"
+                    type: "Delegate"
+                    badge: "VIP Pass"
+                no_badge:
+                  summary: Attendee without badge
+                  value:
+                    code: "ATT99999"
+                    name: "Jane Smith"
+                    type: "Regular"
+                    badge: null
+        '403':
+          description: Attendee belongs to a different event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                event_mismatch:
+                  summary: Event mismatch
+                  value:
+                    message: "Invalid"
+        '404':
+          description: Attendee code not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  summary: Code not found
+                  value:
+                    message: "Invalid"
     post:
       tags:
         - Webhook
@@ -27,7 +105,6 @@ paths:
   
         JWT Token Requirements:
         - Algorithm: HS256
-        - Secret Key: Event's HID (unique identifier)
         - Payload Structure (REQUIRED):
 
           {
@@ -80,39 +157,10 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  code:
-                    type: string
-                    description: Unique attendee code
-                    example: "ATT12345"
-                  name:
-                    type: string
-                    description: Full name of the attendee
-                    example: "Sidharth Kumar"
-                  email:
-                    type: string
-                    format: email
-                    description: Email address of the attendee
-                    example: "sidharth@example.com"
-                  phone:
-                    type: string
-                    description: Phone number of the attendee
-                    example: "+91-9876543210"
-                  type:
-                    type: string
-                    description: Attendee type from the ticket configuration
-                    example: "Delegate"
-                  badge:
-                    type: string
-                    description: Badge name associated with the ticket
-                    example: "VIP Pass"
-                additionalProperties:
-                  type: string
-                  description: Dynamic form field answers with keys following pattern answers_{field_hid}
+                $ref: '#/components/schemas/AttendeeFullData'
               examples:
                 delegate_attendee:
-                  summary: Delegate with custom fields
+                  summary: Attendee Data
                   value:
                     code: "ATT12345"
                     name: "Sidharth Kumar"
@@ -164,37 +212,67 @@ components:
         - code
       example:
         code: "ATT12345"
+        
+        
+    AttendeeBasicData:
+      type: object
+      description: Basic attendee information (GET endpoint response)
+      properties:
+        code:
+          type: string
+          description: Unique attendee ticket number
+          example: "ATT12345"
+        name:
+          type: string
+          description: Full name of the attendee
+          example: "Sidharth Kumar"
+        type:
+          type: string
+          description: Attendee type from ticket
+          example: "Delegate"
+        badge:
+          type: string
+          nullable: true
+          description: Badge name from ticket (null if no badge assigned)
+          example: "VIP Pass"
+      required:
+        - code
+        - name
+        - type
+        - badge
       
-    AttendeeData:
+    AttendeeFullData:
       type: object
       description: Complete attendee information including default and custom fields
       properties:
         code:
           type: string
           description: Unique attendee code
+          example: "ATT12345"
         name:
           type: string
           description: Full name of the attendee
+          example: "Sidharth Kumar"
         email:
           type: string
           format: email
-          description: Email address
+          description: Email address of the attendee
+          example: "sidharth@example.com"
         phone:
           type: string
-          description: Phone number
+          description: Phone number of the attendee
+          example: "+91-9876543210"
         type:
           type: string
-          description: Attendee type from ticket
+          description: Attendee type from the ticket configuration
+          example: "Delegate"
         badge:
           type: string
-          description: Badge name from ticket
-      required:
-        - code
-        - name
-        - email
-        - phone
-        - type
-        - badge
+          description: Badge name associated with the ticket
+          example: "VIP Pass"
+      additionalProperties:
+        type: string
+        description: Dynamic form field answers with keys following pattern answers_{field_hid}
 
     ErrorResponse:
       type: object
