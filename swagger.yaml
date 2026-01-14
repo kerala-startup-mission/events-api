@@ -1,284 +1,161 @@
 openapi: 3.0.3
 info:
   title: Event Management API
-  description: |
-    API for managing event attendee verification through webhook endpoints.
+  description: APIs for fetching event agenda and speakers
   version: 1.0.0
-  contact:
-    name: API Support
-    email: support@startupmission.in
-servers:
-  - url: https://tickets.startupmission.in/api
-    description: Production server
 
-tags:
-  - name: Webhook
-    description: Webhook endpoints for attendee verification
+servers:
+  - url: https://events.startupmission.in
 
 paths:
-  /webhook/verify/{event}:
-    get:
-      tags:
-        - Webhook
-      summary: Verify attendee with code
-      description: |
-        Verification endpoint that retrieves basic attendee information using attendee code.
-        
-        Response includes:
-        - code: Attendee ticket number
-        - name: Attendee full name
-        - type: Attendee type from ticket
-        - badge: Badge name (if assigned)
-      operationId: verifyAttendeeWebhookGet
-      parameters:
-        - name: event
-          in: path
-          required: true
-          description: Event identifier or slug
-          schema:
-            type: string
-          examples:
-            slug:
-              value: "evt_huddle_2024"
-              summary: Event slug identifier
-        - name: code
-          in: query
-          required: true
-          description: Attendee ticket code/number to verify
-          schema:
-            type: string
-          examples:
-            delegate:
-              value: "ATT12345"
-              summary: Delegate attendee code
-              
-      responses:
-        '200':
-          description: Successfully retrieved attendee basic information
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AttendeeBasicData'
-              examples:
-                delegate:
-                  summary: Delegate attendee
-                  value:
-                    code: "ATT12345"
-                    name: "Sidharth Kumar"
-                    type: "Delegate"
-                    badge: "VIP Pass"
-                no_badge:
-                  summary: Attendee without badge
-                  value:
-                    code: "ATT99999"
-                    name: "Jane Smith"
-                    type: "Regular"
-                    badge: null
-        '403':
-          description: Attendee belongs to a different event
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                event_mismatch:
-                  summary: Event mismatch
-                  value:
-                    message: "Invalid"
-        '404':
-          description: Attendee code not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                not_found:
-                  summary: Code not found
-                  value:
-                    message: "Invalid"
-    post:
-      tags:
-        - Webhook
-      summary: Verify attendee
-      description: |
-        Verifies a JWT token for an event attendee and returns their registration details.
-  
-        JWT Token Requirements:
-        - Algorithm: HS256
-        - Payload Structure (REQUIRED):
 
-          {
-            "code": "ATTENDEE_TICKET_NUMBER"
-          }
-        
-        The "code" field in the JWT payload must contain the attendee's ticket number.
-        This code is used to retrieve the attendee's registration data from the system.
-      operationId: verifyAttendeeWebhook
+  /api/event/{eventSlug}/agenda/venue:
+    get:
+      summary: Get event agenda grouped by date and venue
+      description: Returns the full agenda of an event grouped by date and venue
       parameters:
-        - name: event
+        - name: eventSlug
           in: path
           required: true
-          description: Event slug
+          description: Unique slug of the event
           schema:
             type: string
-          examples:
-            slug:
-              value: "evt_huddle_2024"
-              summary: Event slug identifier
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - data
-              properties:
-                data:
-                  type: string
-                  description: |
-                    JWT token string (Base64 encoded).
-                    
-                    Decoded JWT Payload Example:
-                    {
-                      "code": "ATT12345"
-                    }
-                    
-                    The "code" value should be the attendee's ticket number for which you want to retrieve data.
-                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoiQVRUMTIzNDUifQ.dGVzdF9zaWduYXR1cmU"
-            examples:
-              valid_token:
-                summary: Valid JWT token
-                value:
-                  data: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjb2RlIjoiQVRUMTIzNDUifQ.dGVzdF9zaWduYXR1cmU"
+            example: huddle-global-2024
       responses:
-        '200':
-          description: Successfully verified the JWT token and retrieved attendee data
+        "200":
+          description: Agenda response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AttendeeFullData'
-              examples:
-                delegate_attendee:
-                  summary: Attendee Data
-                  value:
-                    code: "ATT12345"
-                    name: "Sidharth Kumar"
-                    email: "sidharth@keralastartup.org"
-                    phone: "+91-9876543210"
-                    type: "Delegate"
-                    badge: "VIP Pass"
-                    answers_company_name: "Kerala Startup Mission"
-                    answers_job_title: "Tech Lead"
-                    answers_dietary_preference: "Vegetarian"
-        '403':
-          description: JWT token validation failed due to invalid format, signature, or wrong secret key
+                $ref: "#/components/schemas/AgendaResponse"
+
+  /api/event/{eventSlug}/speakers:
+    get:
+      summary: Get event speakers grouped by category
+      description: Returns speakers of an event grouped by category (government, speaker, investor, etc.)
+      parameters:
+        - name: eventSlug
+          in: path
+          required: true
+          description: Unique slug of the event
+          schema:
+            type: string
+            example: huddle-global-2024
+      responses:
+        "200":
+          description: Speakers response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                invalid_token:
-                  summary: Invalid or malformed token
-                  value:
-                    message: "Invalid Token"
-        '404':
-          description: Attendee code not found or attendee belongs to different event
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                invalid_code:
-                  summary: Attendee code not found
-                  value:
-                    message: "Invalid Code"
-                invalid_event:
-                  summary: Attendee-event mismatch
-                  value:
-                    message: "Invalid Event"
+                $ref: "#/components/schemas/SpeakersResponse"
 
 components:
   schemas:
-    JWTPayload:
+
+    AgendaResponse:
       type: object
-      description: Required JWT payload structure
       properties:
-        code:
-          type: string
-          description: Attendee ticket number/code for which data should be retrieved
-          example: "ATT12345"
-      required:
-        - code
-      example:
-        code: "ATT12345"
-        
-        
-    AttendeeBasicData:
+        agenda:
+          type: object
+          description: Agenda grouped by date and venue
+          additionalProperties:
+            $ref: "#/components/schemas/VenueAgenda"
+        categories:
+          type: array
+          items:
+            type: string
+        venues:
+          type: array
+          items:
+            type: string
+
+    VenueAgenda:
       type: object
-      description: Basic attendee information (GET endpoint response)
+      description: Agenda grouped by venue
+      additionalProperties:
+        type: array
+        items:
+          $ref: "#/components/schemas/Session"
+
+    Session:
+      type: object
       properties:
-        code:
+        id:
           type: string
-          description: Unique attendee ticket number
-          example: "ATT12345"
+          example: nl0kn
         name:
           type: string
-          description: Full name of the attendee
-          example: "Sidharth Kumar"
-        type:
+        start_time:
           type: string
-          description: Attendee type from ticket
-          example: "Delegate"
-        badge:
+          format: date-time
+          example: "2024-11-28 10:30:00"
+        end_time:
+          type: string
+          format: date-time
+          example: "2024-11-28 11:00:00"
+        description:
           type: string
           nullable: true
-          description: Badge name from ticket (null if no badge assigned)
-          example: "VIP Pass"
-      required:
-        - code
-        - name
-        - type
-        - badge
-      
-    AttendeeFullData:
-      type: object
-      description: Complete attendee information including default and custom fields
-      properties:
-        code:
+        category:
           type: string
-          description: Unique attendee code
-          example: "ATT12345"
+          nullable: true
+        link:
+          type: string
+          nullable: true
+        link_text:
+          type: string
+          nullable: true
+        venue:
+          type: string
+        speakers:
+          $ref: "#/components/schemas/SessionSpeakers"
+        campaign_id:
+          type: string
+
+    SessionSpeakers:
+      type: object
+      description: Speakers grouped by role (speaker, panelist, moderator)
+      additionalProperties:
+        type: array
+        items:
+          $ref: "#/components/schemas/Speaker"
+
+    SpeakersResponse:
+      type: object
+      description: Speakers grouped by category
+      additionalProperties:
+        type: array
+        items:
+          $ref: "#/components/schemas/Speaker"
+
+    Speaker:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 45Eq4
         name:
           type: string
-          description: Full name of the attendee
-          example: "Sidharth Kumar"
-        email:
+        designation:
           type: string
-          format: email
-          description: Email address of the attendee
-          example: "sidharth@example.com"
-        phone:
+          nullable: true
+        organisation:
           type: string
-          description: Phone number of the attendee
-          example: "+91-9876543210"
-        type:
+          nullable: true
+        photo:
           type: string
-          description: Attendee type from the ticket configuration
-          example: "Delegate"
-        badge:
+          format: uri
+          nullable: true
+        linkedin:
           type: string
-          description: Badge name associated with the ticket
-          example: "VIP Pass"
-      additionalProperties:
-        type: string
-        description: Dynamic form field answers with keys following pattern answers_{field_hid}
-
-    ErrorResponse:
-      type: object
-      properties:
-        message:
+          format: uri
+          nullable: true
+        external_id:
           type: string
-          description: Human-readable error message
-      required:
-        - message
+          nullable: true
+        order:
+          type: integer
+          example: 1
+        category:
+          type: string
+          example: government
