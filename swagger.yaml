@@ -6,7 +6,7 @@ info:
 
 servers:
   - url: https://events.startupmission.in
-    description: Use for testing only.
+    description: Use for testing only. For production use CDN endpoint.
   - url: https://events-cdn.startupmission.in
     description: Use for production. API served from Cloudfront.
 
